@@ -55,7 +55,7 @@ def bot_message(message):
         elif message.text == 'Требования📊':
             bot.send_message(message.chat.id, 'Тут будут находиться требование работы')
         elif message.text == 'Отправить файл':
-            msg = bot.send_message(message.chat.id,"Выберите и отправьте файл")
+            msg = bot.send_message(message.chat.id,"Выберите и отправьте файл. Доступные форматы для загрузки pdf, docx, txt.")
             bot.register_next_step_handler(msg, save_doc)
         elif message.text == 'Заполнить google-form':
             bot.send_message(message.chat.id, 'Перейдите по ссылке и заполните форму: https://docs.google.com/forms/u/0/')
@@ -74,14 +74,11 @@ def save_doc(message): #function to store files locally
                         new_file.write(file_upload)
                     bot.reply_to(message, "Файл успешно добавлен!")
                 else:
-                    bot.reply_to(message, "Данный формат недоступен!")
+                    bot.reply_to(message, "Данный формат недоступен! Загрузите файл в формате pdf, txt или docx")
             except Exception as e:
                 #bot.reply_to(message, e)
                 bot.reply_to(message, 'Вы не выбрали файл!')
 bot.polling(none_stop = True)
 
 #need to do:
-#
-#file upload exceptions
-#allowed file format (pdf, docx, txt)
 #sending a file to email
