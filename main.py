@@ -1,6 +1,8 @@
 import telebot
+import os
+
 from telebot import types
-TOKEN = 'token' #token here
+TOKEN = '2114765545:AAEl5fXQt6-BMyXKtxdwTPz8L_o7RjPe9Rk' #token here
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -64,10 +66,15 @@ def save_doc(message): #function to store files locally
             try:
                 file_inf = bot.get_file(message.document.file_id)
                 file_upload = bot.download_file(file_inf.file_path)
-                path = 'E:/01_WORK/PYTHON/chat-bot/files/received/' + message.document.file_name
-                with open(path, 'wb') as new_file:
-                    new_file.write(file_upload)
-                bot.reply_to(message, "Файл успешно добавлен!")
+                path = '/home/alxppv/bot/files/' + message.document.file_name
+                extension = os.path.splitext(message.document.file_name)[1]
+                #bot.reply_to(message, extension)
+                if extension == ".txt" or extension == ".pdf" or extension == ".docx":
+                    with open(path, 'wb') as new_file:
+                        new_file.write(file_upload)
+                    bot.reply_to(message, "Файл успешно добавлен!")
+                else:
+                    bot.reply_to(message, "Данный формат недоступен!")
             except Exception as e:
                 #bot.reply_to(message, e)
                 bot.reply_to(message, 'Вы не выбрали файл!')
