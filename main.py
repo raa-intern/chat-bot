@@ -1,10 +1,20 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import telebot
 import os
+import smtplib
+import configparser
 
 from telebot import types
-TOKEN = '2114765545:AAEl5fXQt6-BMyXKtxdwTPz8L_o7RjPe9Rk' #token here
+from email.message import EmailMessage
+from email.headerregistry import Address
+from email.mime.application import MIMEApplication
 
-bot = telebot.TeleBot(TOKEN)
+config = configparser.ConfigParser()
+config.read("settings.ini")
+
+bot = telebot.TeleBot(config["Main"]["Token"])
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -56,29 +66,54 @@ def bot_message(message):
             bot.send_message(message.chat.id, 'Тут будут находиться требование работы')
         elif message.text == 'Отправить файл':
             msg = bot.send_message(message.chat.id,"Выберите и отправьте файл. Доступные форматы для загрузки pdf, docx, txt.")
-            bot.register_next_step_handler(msg, save_doc)
+            bot.register_next_step_handler(msg, save_and_send_cv)
         elif message.text == 'Заполнить google-form':
             bot.send_message(message.chat.id, 'Перейдите по ссылке и заполните форму: https://docs.google.com/forms/u/0/')
 
 #@bot.message_handler(content_types=['document'])
-def save_doc(message): #function to store files locally
+def save_and_send_cv(message):
     if message.chat.type == 'private':
-            try:
-                file_inf = bot.get_file(message.document.file_id)
-                file_upload = bot.download_file(file_inf.file_path)
-                path = '/home/alxppv/bot/files/' + message.document.file_name
-                extension = os.path.splitext(message.document.file_name)[1]
-                #bot.reply_to(message, extension)
-                if extension == ".txt" or extension == ".pdf" or extension == ".docx":
-                    with open(path, 'wb') as new_file:
-                        new_file.write(file_upload)
-                    bot.reply_to(message, "Файл успешно добавлен!")
-                else:
-                    bot.reply_to(message, "Данный формат недоступен! Загрузите файл в формате pdf, txt или docx")
-            except Exception as e:
-                #bot.reply_to(message, e)
-                bot.reply_to(message, 'Вы не выбрали файл!')
-bot.polling(none_stop = True)
+        try:
+            file_inf = bot.get_file(message.document.file_id)
+            file_upload = bot.download_file(file_inf.file_path)
+        except Exception as e:
+            bot.reply_to(message, e)
 
-#need to do:
-#sending a file to email
+        if(os.path.isdir('./files') != True):
+            os.mkdir('./files', 755)
+
+        path = './files/' + message.document.file_name
+        extension = os.path.splitext(message.document.file_name)[1]
+        allow_ext = [".txt", ".pdf", ".docx"]
+
+        if extension in allow_ext:
+            with open(path, 'wb') as cv:
+                cv.write(file_upload)
+
+            with open(path, 'rb') as cv:
+                msg = EmailMessage()
+                msg['From'] = Address(display_name='Recipient', addr_spec=config["Smtp"]["User"])
+                msg['To'] = Address(display_name='Sender', addr_spec=config["Smtp"]["To"])
+                msg['Subject'] = 'Alert! new CV'
+                msg.set_content('New CV from telegram bot.')
+
+                att = MIMEApplication(cv.read(),_subtype=extension)
+                att.add_header('Content-Disposition', 'attachment', filename=message.document.file_name)
+                msg.make_mixed()
+                msg.attach(att)
+
+                try:
+                    server = smtplib.SMTP_SSL(config["Smtp"]["Host"], config["Smtp"]["Port"])
+                    server.ehlo()
+                    server.login(config["Smtp"]["User"], config["Smtp"]["Password"])
+                    server.sendmail(config["Smtp"]["User"], config["Smtp"]["To"], msg.as_string())
+                    server.close()
+
+                    bot.reply_to(message, "Файл успешно отправлен!")
+                except Exception as e:
+                    bot.send_message(message.chat.id, e)
+
+        else:
+            bot.reply_to(message, "Данный формат недоступен! Загрузите файл в формате pdf, txt или docx")
+
+bot.polling(none_stop = True)
